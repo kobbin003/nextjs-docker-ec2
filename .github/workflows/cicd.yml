@@ -1,0 +1,32 @@
+name: nextjs deployment on ec2
+
+on:
+  push:
+    branches: deploy-with-ec2
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout source
+        uses: actions/checkout@v4
+      - name: create env file
+        run: |
+          touch .env
+          echo "SITE_URL=${{ secrets.SITE_URL }}" >> .env
+      - name: build docker image
+        run: docker image build -t koberdoc/nxtdocec2 .
+      - name: login to docker hub
+        run: docker login -u ${{secrets.DOCKER_USERNAME}} -p ${{secrets.DOCKER_PASSWORD}}
+      - name: publish image to docker hub
+        run: docker push koberdoc/nxtdocec2:latest
+  deploy:
+    needs: build
+    runs-on: self-hosted
+    steps:
+      - name: Pull image from docker hub
+        run: docker pull koberdoc/nxtdocec2
+      - name: Delete the old container
+        run: docker container rm -f nextjs-app-container
+      - name: Run the docker container
+        run: docker run -d -p 3000:3000 --name nextjs-app-container koberdoc/nxtdocec2
